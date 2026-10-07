@@ -1,0 +1,45 @@
+name: ARMv7-A GNU baseline
+
+on:
+  push:
+    branches:
+      - validation/armv7a-baseline
+
+jobs:
+  cortex-a7:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout ThreadX upstream master
+        uses: actions/checkout@v4
+        with:
+          repository: eclipse-threadx/threadx
+          ref: master
+
+      - name: Record baseline revision
+        run: |
+          git rev-parse HEAD
+          git log -1 --oneline
+
+      - name: Install ARM GNU toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi \
+            ninja-build
+
+      - name: Show tool versions
+        run: |
+          arm-none-eabi-gcc --version
+          cmake --version
+          ninja --version
+
+      - name: Configure Cortex-A7
+        run: |
+          cmake -S . -B build/cortex_a7 -GNinja \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/cortex_a7.cmake
+
+      - name: Build Cortex-A7
+        run: |
+          cmake --build build/cortex_a7 --verbose
