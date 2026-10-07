@@ -48,3 +48,28 @@ jobs:
         run: |
           grep -F "ports/cortex_a7/gnu/src/tx_port_offset_check.c" build.log
           test -f build/cortex_a7/libthreadx.a
+
+      - name: Configure Cortex-A7 negative offset test
+        run: |
+          cmake -S . -B build/cortex_a7-negative -GNinja \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/cortex_a7.cmake \
+            -DCMAKE_C_FLAGS="-DTX_PORT_VFP_ENABLE_OFFSET=148"
+      
+      - name: Verify wrong VFP offset is rejected
+        shell: bash
+        run: |
+          set +e
+      
+          cmake --build build/cortex_a7-negative --verbose \
+            2>&1 | tee negative-build.log
+      
+          status=${PIPESTATUS[0]}
+      
+          set -e
+      
+          if [ "$status" -eq 0 ]; then
+            echo "ERROR: build unexpectedly succeeded with an invalid VFP offset"
+            exit 1
+          fi
+      
+          grep -F "tx_port_assert_vfp_enable_offset_is_144" negative-build.log
