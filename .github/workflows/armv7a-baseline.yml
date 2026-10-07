@@ -10,13 +10,13 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Checkout checkout branch
+      - name: Checkout feature branch
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository }}
           ref: fix/armv7a-gnu-offset-check
 
-      - name: Record baseline revision
+      - name: Record revision
         run: |
           git rev-parse HEAD
           git log -1 --oneline
@@ -59,19 +59,6 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE=cmake/cortex_a7.cmake \
             -DCMAKE_PROJECT_INCLUDE="$GITHUB_WORKSPACE/negative-offset.cmake"
 
-      - name: Inspect negative build flags
-        run: |
-          echo "=== CMake cache ==="
-          grep '^CMAKE_C_FLAGS' build/cortex_a7-negative/CMakeCache.txt || true
-
-          echo "=== Ninja build rule ==="
-          grep -n -C 2 "TX_PORT_VFP_ENABLE_OFFSET" \
-            build/cortex_a7-negative/build.ninja || true
-
-          echo "=== Offset checker rule ==="
-          grep -n -C 3 "tx_port_offset_check.c" \
-            build/cortex_a7-negative/build.ninja || true
-      
       - name: Verify wrong VFP offset is rejected
         shell: bash
         run: |
@@ -98,3 +85,61 @@ jobs:
           fi
 
           grep -F "tx_port_assert_vfp_enable_offset_is_144" negative-build.log
+
+  other-armv7a-gnu:
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        core:
+          - a5
+          - a8
+          - a9
+          - a12
+          - a15
+          - a17
+
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: fix/armv7a-gnu-offset-check
+
+      - name: Record revision
+        run: |
+          git rev-parse HEAD
+          git log -1 --oneline
+
+      - name: Install ARM GNU toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi \
+            ninja-build
+
+      - name: Show tool versions
+        run: |
+          arm-none-eabi-gcc --version
+          cmake --version
+          ninja --version
+
+      - name: Configure Cortex-${{ matrix.core }}
+        run: |
+          cmake -S . -B build/cortex_${{ matrix.core }} -GNinja \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/cortex_${{ matrix.core }}.cmake
+
+      - name: Build Cortex-${{ matrix.core }}
+        run: |
+          cmake --build build/cortex_${{ matrix.core }} --verbose \
+            2>&1 | tee build.log
+
+      - name: Verify offset checker
+        run: |
+          grep -F \
+            "ports/cortex_${{ matrix.core }}/gnu/src/tx_port_offset_check.c" \
+            build.log
+
+          test -f build/cortex_${{ matrix.core }}/libthreadx.a
