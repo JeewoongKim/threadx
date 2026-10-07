@@ -10,11 +10,11 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Checkout ThreadX upstream master
+      - name: Checkout checkout branch
         uses: actions/checkout@v4
         with:
-          repository: eclipse-threadx/threadx
-          ref: master
+          repository: ${{ github.repository }}
+          ref: fix/armv7a-gnu-offset-check
 
       - name: Record baseline revision
         run: |
@@ -42,4 +42,9 @@ jobs:
 
       - name: Build Cortex-A7
         run: |
-          cmake --build build/cortex_a7 --verbose
+          cmake --build build/cortex_a7 --verbose 2>&1 | tee build.log
+
+      - name: Verify offset checker
+        run: |
+          grep -F "ports/cortex_a7/gnu/src/tx_port_offset_check.c" build.log
+          test -f build/cortex_a7/libthreadx.a
