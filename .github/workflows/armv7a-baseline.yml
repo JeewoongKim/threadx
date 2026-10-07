@@ -54,22 +54,43 @@ jobs:
           cmake -S . -B build/cortex_a7-negative -GNinja \
             -DCMAKE_TOOLCHAIN_FILE=cmake/cortex_a7.cmake \
             -DCMAKE_C_FLAGS="-DTX_PORT_VFP_ENABLE_OFFSET=148"
+
+      - name: Inspect negative build flags
+        run: |
+          echo "=== CMake cache ==="
+          grep '^CMAKE_C_FLAGS' build/cortex_a7-negative/CMakeCache.txt || true
+
+          echo "=== Ninja build rule ==="
+          grep -n -C 2 "TX_PORT_VFP_ENABLE_OFFSET" \
+            build/cortex_a7-negative/build.ninja || true
+
+          echo "=== Offset checker rule ==="
+          grep -n -C 3 "tx_port_offset_check.c" \
+            build/cortex_a7-negative/build.ninja || true
       
       - name: Verify wrong VFP offset is rejected
         shell: bash
         run: |
           set +e
-      
+
           cmake --build build/cortex_a7-negative --verbose \
             2>&1 | tee negative-build.log
-      
+
           status=${PIPESTATUS[0]}
-      
+
           set -e
-      
+
+          echo "negative build exit status: $status"
+
+          echo "=== checker compile command ==="
+          grep -n "tx_port_offset_check.c" negative-build.log || true
+
+          echo "=== injected macro ==="
+          grep -n "TX_PORT_VFP_ENABLE_OFFSET" negative-build.log || true
+
           if [ "$status" -eq 0 ]; then
             echo "ERROR: build unexpectedly succeeded with an invalid VFP offset"
             exit 1
           fi
-      
+
           grep -F "tx_port_assert_vfp_enable_offset_is_144" negative-build.log
