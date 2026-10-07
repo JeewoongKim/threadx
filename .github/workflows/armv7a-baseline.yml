@@ -51,9 +51,13 @@ jobs:
 
       - name: Configure Cortex-A7 negative offset test
         run: |
+          cat > negative-offset.cmake <<'EOF'
+          add_compile_definitions(TX_PORT_VFP_ENABLE_OFFSET=148)
+          EOF
+
           cmake -S . -B build/cortex_a7-negative -GNinja \
             -DCMAKE_TOOLCHAIN_FILE=cmake/cortex_a7.cmake \
-            -DCMAKE_C_FLAGS="-DTX_PORT_VFP_ENABLE_OFFSET=148"
+            -DCMAKE_PROJECT_INCLUDE="$GITHUB_WORKSPACE/negative-offset.cmake"
 
       - name: Inspect negative build flags
         run: |
